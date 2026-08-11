@@ -1,0 +1,50 @@
+{
+  "translation": {
+    "login": {
+      "title": "Welcome to GMA Lockers",
+      "companyCode": "Company Code",
+      "pin": "Access PIN",
+      "submit": "Login",
+      "error": "Invalid credentials"
+    },
+    "tabs": {
+      "home": "Lockers",
+      "ingresar": "Deposit",
+      "retirar": "Retrieve",
+      "historial": "History"
+    },
+    "home": {
+      "available": "Available",
+      "occupied": "Occupied",
+      "overdue": "Overdue",
+      "empty": "No lockers configured."
+    },
+    "packageForm": {
+      "title": "Deposit Package",
+      "clientName": "Client Name",
+      "phone": "Phone Number",
+      "content": "Content",
+      "locker": "Assigned Locker",
+      "paymentStatus": "Payment Status",
+      "paid": "Paid",
+      "pending": "Pay on pickup",
+      "save": "Save Package",
+      "success": "Package registered successfully",
+      "noLockers": "No available lockers"
+    },
+    "retire": {
+      "title": "Retrieve Package",
+      "scanQR": "Scan QR",
+      "manualSearch": "Manual Search",
+      "searchPlaceholder": "Search by name or code (L-XXXX)",
+      "markPickedUp": "Mark as Picked Up",
+      "success": "Package delivered successfully",
+      "notFound": "Package not found"
+    },
+    "common": {
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "offline": "Offline mode - Saving locally"
+    }
+  }
+}

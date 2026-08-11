@@ -1,0 +1,50 @@
+{
+  "translation": {
+    "login": {
+      "title": "Bienvenido a GMA Lockers",
+      "companyCode": "Código de Empresa",
+      "pin": "PIN de Acceso",
+      "submit": "Ingresar",
+      "error": "Credenciales inválidas"
+    },
+    "tabs": {
+      "home": "Casilleros",
+      "ingresar": "Ingresar",
+      "retirar": "Retirar",
+      "historial": "Historial"
+    },
+    "home": {
+      "available": "Libre",
+      "occupied": "Ocupado",
+      "overdue": "Atrasado",
+      "empty": "No hay casilleros configurados."
+    },
+    "packageForm": {
+      "title": "Ingresar Paquete",
+      "clientName": "Nombre del Cliente",
+      "phone": "Número de Celular",
+      "content": "Contenido",
+      "locker": "Locker Asignado",
+      "paymentStatus": "Estado de Pago",
+      "paid": "Pagado",
+      "pending": "Paga al recoger",
+      "save": "Guardar Paquete",
+      "success": "Paquete registrado con éxito",
+      "noLockers": "No hay lockers disponibles"
+    },
+    "retire": {
+      "title": "Retirar Paquete",
+      "scanQR": "Escanear QR",
+      "manualSearch": "Búsqueda Manual",
+      "searchPlaceholder": "Buscar por nombre o código (L-XXXX)",
+      "markPickedUp": "Marcar como Recogido",
+      "success": "Paquete entregado correctamente",
+      "notFound": "Paquete no encontrado"
+    },
+    "common": {
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "offline": "Modo sin conexión - Guardando localmente"
+    }
+  }
+}

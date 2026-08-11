@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Firebase
+**/firebase-service-account.json
+**/serviceAccountKey.json
+
+# Baileys sessions (auth state)
+cloud-engine/sessions/
+
+# Expo / React Native
+mobile-app/.expo/
+mobile-app/android/
+mobile-app/ios/
+*.apk
+*.aab
+
+# Electron
+admin-desktop/out/
+admin-desktop/.webpack/
+admin-desktop/.vite/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test
+coverage/

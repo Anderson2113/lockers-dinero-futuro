@@ -1,0 +1,60 @@
+{
+  "name": "admin-desktop",
+  "author": "GMA Lockers",
+  "description": "GMA Admin Control Panel",
+  "private": true,
+  "version": "0.0.0",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "vite:dev": "vite",
+    "electron:start": "wait-on tcp:5173 && cross-env NODE_ENV=development electron .",
+    "start": "concurrently -k \"npm run vite:dev\" \"npm run electron:start\"",
+    "build:react": "vite build",
+    "build": "npm run build:react && electron-builder",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@gma-lockers/shared": "*",
+    "firebase": "^10.12.2",
+    "lucide-react": "^0.395.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^6.24.0",
+    "recharts": "^2.12.7",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.12.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "31.0.0",
+    "electron-builder": "^24.13.3",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "typescript": "~5.6.2",
+    "vite": "^8.0.16",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.gmalockers.admin",
+    "productName": "GMA Admin",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

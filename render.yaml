@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: gma-lockers-cloud
+    env: docker
+    dockerfilePath: cloud-engine/Dockerfile
+    plan: free
+    autoDeploy: false
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: "*" # To be updated with actual staging URL
+      # GOOGLE_APPLICATION_CREDENTIALS se puede proveer como variable de entorno
+      # en el dashboard de Render o montando un secret file.
