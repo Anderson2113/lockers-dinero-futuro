@@ -124,3 +124,5 @@ router.patch('/tenants/:id/extend', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+router.get('/tenants', (req, res) => { res.status(200).json({ status: 'ok', message: 'API Tenants Activa' }); });

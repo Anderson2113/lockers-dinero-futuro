@@ -19,8 +19,8 @@
     "@gma-lockers/shared": "*",
     "firebase": "^10.12.2",
     "lucide-react": "^0.395.0",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "react-router-dom": "^6.24.0",
     "recharts": "^2.12.7",
     "zustand": "^4.5.2"

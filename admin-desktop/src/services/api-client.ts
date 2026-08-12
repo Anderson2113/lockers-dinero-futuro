@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://gma-lockers-engine.onrender.com/api';
 const API_SECRET = import.meta.env.VITE_API_SECRET || 'dev-secret-key-123';
 
 const authHeaders = {
