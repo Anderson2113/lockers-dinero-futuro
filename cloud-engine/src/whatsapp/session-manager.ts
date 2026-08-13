@@ -41,18 +41,6 @@ export async function startSession(
     if (qr && onQR) {
       logInfo('WhatsApp', `QR generado para tenant: ${tenantId}`);
       onQR(qr);
-      
-      // INYECCIÓN DE CAOS (C): Simular baneo 405 a los 5 segundos sin escanear QR
-      logWarn('WhatsApp', 'INYECCIÓN DE CAOS: Programando simulación de Ban 405 en 3s');
-      setTimeout(() => {
-        sock.ev.emit('connection.update', {
-          connection: 'close',
-          lastDisconnect: {
-            error: new Boom('Rate Limited (Chaos)', { statusCode: 405 }),
-            date: new Date()
-          }
-        });
-      }, 3000);
     }
 
     if (connection === 'close') {
