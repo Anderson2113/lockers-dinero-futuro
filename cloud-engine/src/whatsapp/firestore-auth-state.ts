@@ -6,7 +6,7 @@ const memoryCache = new Map<string, any>();
 
 export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: AuthenticationState, saveCreds: () => Promise<void>, clearState: () => Promise<void> }> => {
   // V4: Arquitectura multi-documento. Supera el límite de 1MB de Firebase.
-  const credsRef = db.collection('whatsapp_auth_v4').doc(tenantId);
+  const credsRef = db.collection('whatsapp_auth_v5').doc(tenantId);
   const keysRef = credsRef.collection('keys'); // Subcolección infinita
 
   let creds: AuthenticationCreds;
