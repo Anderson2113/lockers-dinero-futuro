@@ -1,111 +1,111 @@
 import { proto, AuthenticationCreds, AuthenticationState, SignalDataTypeMap, initAuthCreds, BufferJSON } from '@whiskeysockets/baileys';
 import { db } from '../config/firebase-admin.js';
 
-// Caché en RAM para mantener la velocidad
-const memoryCache = new Map<string, { creds: AuthenticationCreds, keys: any }>();
+// Caché en RAM global para máxima velocidad (evita cuellos de botella)
+const memoryCache = new Map<string, any>();
 
 export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: AuthenticationState, saveCreds: () => Promise<void>, clearState: () => Promise<void> }> => {
-  // V3 para empezar con una base de datos limpia y sin historiales corruptos
-  const docRef = db.collection('whatsapp_auth_v3').doc(tenantId);
-  
+  // V4: Arquitectura multi-documento. Supera el límite de 1MB de Firebase.
+  const credsRef = db.collection('whatsapp_auth_v4').doc(tenantId);
+  const keysRef = credsRef.collection('keys'); // Subcolección infinita
+
   let creds: AuthenticationCreds;
-  let keys: any = {};
-
-  const docSnap = await docRef.get();
-  if (docSnap.exists) {
-    const data = docSnap.data();
-    creds = JSON.parse(data?.creds || '{}', BufferJSON.reviver);
-    keys = JSON.parse(data?.keys || '{}', BufferJSON.reviver);
-  } else {
-    creds = initAuthCreds();
-  }
-
-  if (memoryCache.has(tenantId)) {
-    const cached = memoryCache.get(tenantId)!;
-    creds = cached.creds;
-    keys = { ...keys, ...cached.keys };
-  }
   
-  memoryCache.set(tenantId, { creds, keys });
-
-  let saveTimer: NodeJS.Timeout | null = null;
-
-  const saveState = async () => {
-    try {
-      // 🚀 EL FILTRO ANTI-GRASA: Aislar las llaves pesadas
-      const lightweightKeys: any = {};
-      for (const key in keys) {
-        // Ignoramos todo el historial (app-state) que pesa 1MB y rompe Firebase
-        if (!key.startsWith('app-state')) {
-          lightweightKeys[key] = keys[key];
-        }
-      }
-
-      await docRef.set({
-        creds: JSON.stringify(creds, BufferJSON.replacer),
-        keys: JSON.stringify(lightweightKeys, BufferJSON.replacer)
-      });
-    } catch (error) {
-      console.error(`[Auth] Error guardando estado comprimido para ${tenantId}:`, error);
+  // 1. Cargar Credenciales principales
+  if (memoryCache.has(`creds_${tenantId}`)) {
+    creds = memoryCache.get(`creds_${tenantId}`);
+  } else {
+    const credsSnap = await credsRef.get();
+    if (credsSnap.exists) {
+      creds = JSON.parse(credsSnap.data()?.creds || '{}', BufferJSON.reviver);
+    } else {
+      creds = initAuthCreds();
     }
-  };
+    memoryCache.set(`creds_${tenantId}`, creds);
+  }
 
-  const debouncedSave = () => {
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      saveState();
-    }, 1000); 
-  };
-
-  const clearState = async () => {
-    if (saveTimer) clearTimeout(saveTimer);
-    memoryCache.delete(tenantId);
-    await docRef.delete();
+  // 2. Motor de escritura en segundo plano (Evita el error "Transaction too big")
+  const writeQueue = async (ops: any[]) => {
+    const chunkSize = 400; // Límite seguro de Firebase (el máximo es 500)
+    for (let i = 0; i < ops.length; i += chunkSize) {
+      const chunk = ops.slice(i, i + chunkSize);
+      const batch = db.batch();
+      chunk.forEach(op => {
+        if (op.type === 'set') batch.set(op.ref, { value: op.value });
+        else batch.delete(op.ref);
+      });
+      // Fire and forget: Guarda en la nube sin trabar el Event Loop de Node
+      await batch.commit().catch(e => console.error(`[Auth] Error de Batch para ${tenantId}:`, e));
+    }
   };
 
   return {
     state: {
       creds,
       keys: {
-        get: (type, ids) => {
+        get: async (type, ids) => {
           const data: { [id: string]: SignalDataTypeMap[typeof type] } = {};
-          ids.forEach(id => {
-            let value = keys[`${type}-${id}`];
-            if (type === 'app-state-sync-key' && value) {
-              value = proto.Message.AppStateSyncKeyData.fromObject(value);
-            }
-            data[id] = value;
-          });
+          await Promise.all(
+            ids.map(async id => {
+              const key = `${type}-${id}`;
+              let value = memoryCache.get(`${tenantId}_${key}`);
+              
+              if (value === undefined) {
+                const docSnap = await keysRef.doc(key).get();
+                if (docSnap.exists) {
+                  value = JSON.parse(docSnap.data()?.value || '{}', BufferJSON.reviver);
+                } else {
+                  value = null; // Guardar nulos en caché para acelerar consultas futuras
+                }
+                memoryCache.set(`${tenantId}_${key}`, value);
+              }
+
+              if (value) {
+                if (type === 'app-state-sync-key') {
+                  value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                }
+                data[id] = value;
+              }
+            })
+          );
           return data;
         },
-        set: (data) => {
-          let hasChanges = false;
+        set: async (data) => {
+          const ops: any[] = [];
           for (const category in data) {
             const categoryData = data[category as keyof typeof data];
             if (categoryData) {
               for (const id in categoryData) {
                 const value = categoryData[id];
                 const key = `${category}-${id}`;
+                
+                // Actualizar caché RAM al instante para que el Bot fluya a 100% de velocidad
+                memoryCache.set(`${tenantId}_${key}`, value ? value : null);
+                
+                // Encolar la operación para Firebase
+                const doc = keysRef.doc(key);
                 if (value) {
-                  keys[key] = value;
+                  ops.push({ type: 'set', ref: doc, value: JSON.stringify(value, BufferJSON.replacer) });
                 } else {
-                  delete keys[key];
+                  ops.push({ type: 'delete', ref: doc });
                 }
-                hasChanges = true;
               }
             }
           }
-          if (hasChanges) {
-            memoryCache.set(tenantId, { creds, keys });
-            debouncedSave(); 
+          // Disparar Firebase en lotes por la ruta trasera
+          if (ops.length > 0) {
+            writeQueue(ops);
           }
         }
       }
     },
-    saveCreds: () => {
-      debouncedSave();
-      return Promise.resolve();
+    saveCreds: async () => {
+      memoryCache.set(`creds_${tenantId}`, creds);
+      await credsRef.set({ creds: JSON.stringify(creds, BufferJSON.replacer) });
     },
-    clearState
+    clearState: async () => {
+      memoryCache.clear();
+      await credsRef.delete();
+    }
   };
 };
