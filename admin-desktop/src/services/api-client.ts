@@ -1,5 +1,5 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://gma-lockers-engine.onrender.com/api';
-const API_SECRET = import.meta.env.VITE_API_SECRET || 'dev-secret-key-123';
+const API_URL = 'https://lockers-dinero-futuro-1.onrender.com/api';
+const API_SECRET = 'dev-secret-key-123';
 
 const authHeaders = {
   'Content-Type': 'application/json',
@@ -8,15 +8,17 @@ const authHeaders = {
 
 export const apiClient = {
   async get(endpoint: string) {
-    const res = await fetch(`${API_URL}${endpoint}`, {
-      headers: authHeaders,
-    });
+    const url = `${API_URL}${endpoint}`;
+    console.log("🚀 URL GET:", url);
+    const res = await fetch(url, { headers: authHeaders });
     if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
 
   async post(endpoint: string, body: any) {
-    const res = await fetch(`${API_URL}${endpoint}`, {
+    const url = `${API_URL}${endpoint}`;
+    console.log("🚀 URL POST:", url);
+    const res = await fetch(url, {
       method: 'POST',
       headers: authHeaders,
       body: JSON.stringify(body),
@@ -27,7 +29,9 @@ export const apiClient = {
   },
 
   async patch(endpoint: string, body: any) {
-    const res = await fetch(`${API_URL}${endpoint}`, {
+    const url = `${API_URL}${endpoint}`;
+    console.log("🚀 URL PATCH:", url);
+    const res = await fetch(url, {
       method: 'PATCH',
       headers: authHeaders,
       body: JSON.stringify(body),
@@ -38,7 +42,9 @@ export const apiClient = {
   },
 
   async delete(endpoint: string) {
-    const res = await fetch(`${API_URL}${endpoint}`, {
+    const url = `${API_URL}${endpoint}`;
+    console.log("🚀 URL DELETE:", url);
+    const res = await fetch(url, {
       method: 'DELETE',
       headers: authHeaders,
     });

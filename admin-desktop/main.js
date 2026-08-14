@@ -43,9 +43,12 @@ app.on('window-all-closed', function () {
 
 ipcMain.handle('get-whatsapp-qr', async (event, tenantId) => {
   try {
-    const response = await fetch('http://localhost:3000/api/vincular-wa', {
+    const response = await fetch('https://lockers-dinero-futuro-1.onrender.com/api/vincular-wa', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer dev-secret-key-123'
+      },
       body: JSON.stringify({ tenant_id: tenantId })
     });
     const data = await response.json();
@@ -57,8 +60,11 @@ ipcMain.handle('get-whatsapp-qr', async (event, tenantId) => {
 
 ipcMain.handle('desvincular-whatsapp', async (event, tenantId) => {
   try {
-    const response = await fetch(`http://localhost:3000/api/desvincular-wa/${tenantId}`, {
-      method: 'DELETE'
+    const response = await fetch(`https://lockers-dinero-futuro-1.onrender.com/api/desvincular-wa/${tenantId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': 'Bearer dev-secret-key-123'
+      }
     });
     const data = await response.json();
     return data;

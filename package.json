@@ -18,5 +18,11 @@
     "desktop:build": "npm run build --workspace=admin-desktop"
   },
   "author": "Anderson Garcia (GMA)",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "concurrently": "^10.0.4",
+    "date-fns": "^4.4.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
 }
