@@ -1,88 +1,89 @@
-import { AuthenticationCreds, AuthenticationState, BufferJSON, initAuthCreds, SignalDataTypeMap } from '@whiskeysockets/baileys';
+import { proto, AuthenticationCreds, AuthenticationState, SignalDataTypeMap, initAuthCreds, BufferJSON } from '@whiskeysockets/baileys';
 import { db } from '../config/firebase-admin.js';
-import { logInfo, logError } from '../utils/logger.js';
 
-export async function useFirestoreAuthState(tenantId: string) {
-  const collectionRef = db.collection('empresas').doc(tenantId).collection('whatsapp_auth');
+export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: AuthenticationState, saveCreds: () => Promise<void>, clearState: () => Promise<void> }> => {
+  // Usamos una nueva colección (_v2) para ignorar para siempre la data corrupta anterior
+  const docRef = db.collection('whatsapp_auth_v2').doc(tenantId);
+  
+  const docSnap = await docRef.get();
+  let creds: AuthenticationCreds;
+  let keys: any = {};
 
-  const readData = async (id: string) => {
+  // 1. Cargar estado anterior si existe, o inicializar uno nuevo
+  if (docSnap.exists) {
+    const data = docSnap.data();
+    creds = JSON.parse(data?.creds || '{}', BufferJSON.reviver);
+    keys = JSON.parse(data?.keys || '{}', BufferJSON.reviver);
+  } else {
+    creds = initAuthCreds();
+  }
+
+  let saveTimer: NodeJS.Timeout | null = null;
+
+  // 2. Función maestra que guarda TODO el estado en un solo documento
+  const saveState = async () => {
     try {
-      const docSnap = await collectionRef.doc(id).get();
-      if (docSnap.exists) {
-        const dataStr = docSnap.data()?.data;
-        return JSON.parse(dataStr, BufferJSON.reviver);
-      }
-      return null;
+      await docRef.set({
+        creds: JSON.stringify(creds, BufferJSON.replacer),
+        keys: JSON.stringify(keys, BufferJSON.replacer)
+      });
     } catch (error) {
-      logError('Auth', `Error leyendo ${id} de Firestore`, error);
-      return null;
+      console.error(`[Auth] Error guardando estado comprimido para ${tenantId}:`, error);
     }
   };
 
-  const writeData = async (data: any, id: string) => {
-    try {
-      const dataStr = JSON.stringify(data, BufferJSON.replacer);
-      await collectionRef.doc(id).set({ data: dataStr });
-    } catch (error) {
-      logError('Auth', `Error escribiendo ${id} en Firestore`, error);
-    }
+  // 3. EL AMORTIGUADOR (Debounce): Agrupa miles de peticiones en una sola escritura cada 3 segundos
+  const debouncedSave = () => {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveState();
+    }, 3000);
   };
 
-  const removeData = async (id: string) => {
-    try {
-      await collectionRef.doc(id).delete();
-    } catch (error) {
-      logError('Auth', `Error eliminando ${id} de Firestore`, error);
-    }
+  const clearState = async () => {
+    if (saveTimer) clearTimeout(saveTimer);
+    await docRef.delete();
   };
-
-  const creds = await readData('creds') || initAuthCreds();
 
   return {
     state: {
       creds,
       keys: {
-        get: async (type: string, ids: string[]) => {
-          const data: { [key: string]: SignalDataTypeMap[keyof SignalDataTypeMap] } = {};
-          await Promise.all(
-            ids.map(async (id) => {
-              let value = await readData(`${type}-${id}`);
-              if (type === 'app-state-sync-key' && value) {
-                value = { ...value, value: Buffer.from(value.value) }; // ensure value is Buffer
-              }
-              data[id] = value;
-            })
-          );
+        get: (type, ids) => {
+          const data: { [id: string]: SignalDataTypeMap[typeof type] } = {};
+          ids.forEach(id => {
+            let value = keys[`${type}-${id}`];
+            if (type === 'app-state-sync-key' && value) {
+              value = proto.Message.AppStateSyncKeyData.fromObject(value);
+            }
+            data[id] = value;
+          });
           return data;
         },
-        set: async (data: any) => {
-          const tasks: Promise<void>[] = [];
+        set: (data) => {
+          let hasChanges = false;
           for (const category in data) {
-            for (const id in data[category]) {
-              const value = data[category][id];
-              const fileId = `${category}-${id}`;
-              tasks.push(value ? writeData(value, fileId) : removeData(fileId));
+            for (const id in data[category as keyof typeof data]) {
+              const value = data[category as keyof typeof data][id];
+              const key = `${category}-${id}`;
+              if (value) {
+                keys[key] = value;
+              } else {
+                delete keys[key];
+              }
+              hasChanges = true;
             }
           }
-          await Promise.all(tasks);
+          if (hasChanges) {
+            debouncedSave(); // Disparar el amortiguador en lugar de escribir directo
+          }
         }
       }
-    } as AuthenticationState,
-    saveCreds: () => {
-      return writeData(creds, 'creds');
     },
-    clearState: async () => {
-      try {
-        const snapshot = await collectionRef.get();
-        const batch = db.batch();
-        snapshot.docs.forEach((doc: any) => {
-          batch.delete(doc.ref);
-        });
-        await batch.commit();
-        logInfo('Auth', `Estado de sesión eliminado para tenant: ${tenantId}`);
-      } catch (error) {
-        logError('Auth', `Error limpiando estado para tenant: ${tenantId}`, error);
-      }
-    }
+    saveCreds: () => {
+      debouncedSave();
+      return Promise.resolve();
+    },
+    clearState
   };
-}
+};
