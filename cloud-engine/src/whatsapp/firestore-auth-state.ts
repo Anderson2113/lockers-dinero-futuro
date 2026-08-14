@@ -1,41 +1,49 @@
 import { proto, AuthenticationCreds, AuthenticationState, SignalDataTypeMap, initAuthCreds, BufferJSON } from '@whiskeysockets/baileys';
 import { db } from '../config/firebase-admin.js';
 
-// CACHÉ GLOBAL EN MEMORIA
-// Salva la sesión si WhatsApp fuerza un reinicio rápido antes de guardar en Firebase
+// Caché en RAM para mantener la velocidad
 const memoryCache = new Map<string, { creds: AuthenticationCreds, keys: any }>();
 
 export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: AuthenticationState, saveCreds: () => Promise<void>, clearState: () => Promise<void> }> => {
-  const docRef = db.collection('whatsapp_auth_v2').doc(tenantId);
+  // V3 para empezar con una base de datos limpia y sin historiales corruptos
+  const docRef = db.collection('whatsapp_auth_v3').doc(tenantId);
   
   let creds: AuthenticationCreds;
   let keys: any = {};
 
-  // 1. Revisar caché en memoria PRIMERO (Evita la condición de carrera)
+  const docSnap = await docRef.get();
+  if (docSnap.exists) {
+    const data = docSnap.data();
+    creds = JSON.parse(data?.creds || '{}', BufferJSON.reviver);
+    keys = JSON.parse(data?.keys || '{}', BufferJSON.reviver);
+  } else {
+    creds = initAuthCreds();
+  }
+
   if (memoryCache.has(tenantId)) {
     const cached = memoryCache.get(tenantId)!;
     creds = cached.creds;
-    keys = cached.keys;
-  } else {
-    // 2. Si no está en memoria, leer de Firestore
-    const docSnap = await docRef.get();
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      creds = JSON.parse(data?.creds || '{}', BufferJSON.reviver);
-      keys = JSON.parse(data?.keys || '{}', BufferJSON.reviver);
-    } else {
-      creds = initAuthCreds();
-    }
-    memoryCache.set(tenantId, { creds, keys });
+    keys = { ...keys, ...cached.keys };
   }
+  
+  memoryCache.set(tenantId, { creds, keys });
 
   let saveTimer: NodeJS.Timeout | null = null;
 
   const saveState = async () => {
     try {
+      // 🚀 EL FILTRO ANTI-GRASA: Aislar las llaves pesadas
+      const lightweightKeys: any = {};
+      for (const key in keys) {
+        // Ignoramos todo el historial (app-state) que pesa 1MB y rompe Firebase
+        if (!key.startsWith('app-state')) {
+          lightweightKeys[key] = keys[key];
+        }
+      }
+
       await docRef.set({
         creds: JSON.stringify(creds, BufferJSON.replacer),
-        keys: JSON.stringify(keys, BufferJSON.replacer)
+        keys: JSON.stringify(lightweightKeys, BufferJSON.replacer)
       });
     } catch (error) {
       console.error(`[Auth] Error guardando estado comprimido para ${tenantId}:`, error);
@@ -46,12 +54,12 @@ export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: 
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       saveState();
-    }, 500); // Reducido a 500ms para un guardado ultra-rápido
+    }, 1000); 
   };
 
   const clearState = async () => {
     if (saveTimer) clearTimeout(saveTimer);
-    memoryCache.delete(tenantId); // Limpiar memoria al desconectar
+    memoryCache.delete(tenantId);
     await docRef.delete();
   };
 
@@ -88,6 +96,7 @@ export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: 
             }
           }
           if (hasChanges) {
+            memoryCache.set(tenantId, { creds, keys });
             debouncedSave(); 
           }
         }
