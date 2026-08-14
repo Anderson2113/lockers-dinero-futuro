@@ -2,14 +2,12 @@ import { proto, AuthenticationCreds, AuthenticationState, SignalDataTypeMap, ini
 import { db } from '../config/firebase-admin.js';
 
 export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: AuthenticationState, saveCreds: () => Promise<void>, clearState: () => Promise<void> }> => {
-  // Usamos una nueva colección (_v2) para ignorar para siempre la data corrupta anterior
   const docRef = db.collection('whatsapp_auth_v2').doc(tenantId);
   
   const docSnap = await docRef.get();
   let creds: AuthenticationCreds;
   let keys: any = {};
 
-  // 1. Cargar estado anterior si existe, o inicializar uno nuevo
   if (docSnap.exists) {
     const data = docSnap.data();
     creds = JSON.parse(data?.creds || '{}', BufferJSON.reviver);
@@ -20,7 +18,6 @@ export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: 
 
   let saveTimer: NodeJS.Timeout | null = null;
 
-  // 2. Función maestra que guarda TODO el estado en un solo documento
   const saveState = async () => {
     try {
       await docRef.set({
@@ -32,7 +29,6 @@ export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: 
     }
   };
 
-  // 3. EL AMORTIGUADOR (Debounce): Agrupa miles de peticiones en una sola escritura cada 3 segundos
   const debouncedSave = () => {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -63,19 +59,23 @@ export const useFirestoreAuthState = async (tenantId: string): Promise<{ state: 
         set: (data) => {
           let hasChanges = false;
           for (const category in data) {
-            for (const id in data[category as keyof typeof data]) {
-              const value = data[category as keyof typeof data][id];
-              const key = `${category}-${id}`;
-              if (value) {
-                keys[key] = value;
-              } else {
-                delete keys[key];
+            const categoryData = data[category as keyof typeof data];
+            // PARCHE: Verificamos que categoryData exista antes de procesarlo
+            if (categoryData) {
+              for (const id in categoryData) {
+                const value = categoryData[id];
+                const key = `${category}-${id}`;
+                if (value) {
+                  keys[key] = value;
+                } else {
+                  delete keys[key];
+                }
+                hasChanges = true;
               }
-              hasChanges = true;
             }
           }
           if (hasChanges) {
-            debouncedSave(); // Disparar el amortiguador en lugar de escribir directo
+            debouncedSave(); 
           }
         }
       }
